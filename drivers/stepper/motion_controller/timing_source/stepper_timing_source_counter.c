@@ -64,6 +64,7 @@ static int step_counter_timing_source_stop(const struct stepper_timing_source *t
 	}
 
 	data->counter_top_cfg.ticks = 0;
+	counter_set_top_value(cfg->dev, &data->counter_top_cfg);
 
 	return ret;
 }

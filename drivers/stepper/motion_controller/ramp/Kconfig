@@ -9,6 +9,14 @@ menuconfig STEPPER_RAMP
 
 if STEPPER_RAMP
 
+config STEPPER_RAMP_CONSTANT
+    bool "Constant ramp control"
+    default y
+    help
+      Enable simple ramp allowing only constant velocities without
+      any acceleration. This ramp is used by default if none other
+      is provided. It also enables execution of an emergency stop.
+
 config STEPPER_RAMP_TRAPEZOIDAL
 	bool "Trapezoidal ramp control"
 	help

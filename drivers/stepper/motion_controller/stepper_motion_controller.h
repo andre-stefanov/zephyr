@@ -21,9 +21,20 @@
 #include "timing_source/stepper_timing_source.h"
 #include "ramp/stepper_ramp.h"
 
-typedef int (*stepper_motion_controller_step_callback_t)(const struct device *, enum stepper_direction);
+typedef int (*stepper_motion_controller_step_callback_t)(const struct device *);
 
-typedef void (*stepper_motion_controller_event_callback_t)(const struct device *, enum stepper_event);
+typedef int (*stepper_motion_controller_set_direction_callback_t)(
+	const struct device *, enum stepper_direction);
+
+typedef void (*stepper_motion_controller_event_callback_t)(const struct device *,
+                                                           enum stepper_event);
+
+struct stepper_motion_controller_callbacks_api
+{
+	stepper_motion_controller_step_callback_t step;
+	stepper_motion_controller_set_direction_callback_t set_direction;
+	stepper_motion_controller_event_callback_t event;
+};
 
 /**
  * @brief Common step direction stepper config.
@@ -35,10 +46,7 @@ struct stepper_motion_controller_config
 	const struct stepper_timing_source_api *timing_source_api;
 	struct stepper_timing_source *timing_source;
 
-	const struct stepper_ramp_api *ramp_api;
-
-	const stepper_motion_controller_step_callback_t step_callback;
-	const stepper_motion_controller_event_callback_t event_callback;
+	const struct stepper_motion_controller_callbacks_api *callbacks;
 };
 
 /**
@@ -54,8 +62,7 @@ struct stepper_motion_controller_data
 
 	void *timing_source_data;
 
-	struct avr446_ramp_data ramp_data;
-	struct avr446_ramp_profile ramp_profile; // TODO: no need to store ramp profile here
+	struct stepper_ramp_base *ramp;
 };
 
 struct stepper_motion_controller
@@ -69,7 +76,7 @@ struct stepper_dev_config_base
 	const struct stepper_motion_controller *controller;
 };
 
-#define STEPPER_MOTION_CONTROLLER_DT_INST_DEFINE(inst, step_fn, event_handler_fn)			\
+#define STEPPER_MOTION_CONTROLLER_DT_INST_DEFINE(inst, callbacks_param)					\
 	STEPPER_TIMING_SOURCE_DT_INST_DEFINE(inst)							\
 	static struct stepper_motion_controller_data stepper_motion_controller_data_##inst = {		\
 		.timing_source_data = STEPPER_TIMING_SOURCE_DT_INST_GET(inst)				\
@@ -78,9 +85,7 @@ struct stepper_dev_config_base
 	{												\
 		.timing_source_api = STEPPER_TIMING_SOURCE_DT_SPEC_GET_API(inst),			\
 		.timing_source = STEPPER_TIMING_SOURCE_DT_INST_GET(inst),				\
-		.ramp_api = RAMP_DT_INST_SPEC_GET_API(inst),						\
-		.step_callback = step_fn,								\
-		.event_callback = event_handler_fn,							\
+		.callbacks = callbacks_param,								\
 	};												\
 	static struct stepper_motion_controller stepper_motion_controller_##inst = {			\
 		.config = &stepper_motion_controller_cfg_##inst,					\
@@ -119,22 +124,7 @@ int stepper_motion_controller_move_by(const struct device *dev, int32_t micro_st
  */
 int stepper_motion_controller_is_moving(const struct device *dev, bool *is_moving);
 
-/**
- * @brief Configures the ramp profile for the stepper motion controller.
- *
- * This function sets the ramp profile parameters for acceleration, deceleration, and
- * minimal step interval (maximum velocity) to the stepper motion controller. It ensures
- * that the provided parameters are non-zero before applying the configuration.
- *
- * @param dev Device instance pointer corresponding to the stepper motor controller.
- * @param ramp_profile Pointer to the structure holding ramp profile parameters to configure.
- *
- * @retval 0 If the configuration is successful.
- * @retval -EINVAL If any of the input ramp profile parameters (acceleration, deceleration,
- * or minimum interval) are zero.
- */
-int stepper_motion_controller_set_ramp_profile(const struct device *dev,
-                                               const struct stepper_ramp_profile *ramp_profile);
+int stepper_motion_controller_set_ramp(const struct device *dev, struct stepper_ramp_base *ramp);
 
 /**
  * @brief Stop the stepper motor.

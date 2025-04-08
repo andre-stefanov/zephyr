@@ -4,6 +4,7 @@
  */
 
 #include "stepper_ramp.h"
+#include <zephyr/drivers/stepper/stepper_ramp_trapezoidal.h>
 
 #include <sys/errno.h>
 #include <zephyr/logging/log.h>
@@ -82,51 +83,56 @@ static uint32_t avr446_acceleration_steps_needed(const uint32_t interval_in_ns,
 		       acceleration * 2);
 }
 
-static void avr446_calculate_next_accel_step(struct avr446_ramp_data *ramp)
+static void avr446_calculate_next_accel_step(struct stepper_ramp_trapezoidal_data *data)
 {
-	if (ramp->acceleration_idx++ == 0) {
-		ramp->interval_calculation_rest = 0;
-		ramp->current_interval = ramp->first_acceleration_interval;
+	data->accel_steps_left--;
+
+	if (data->acceleration_idx++ == 0) {
+		data->interval_calculation_rest = 0;
+		data->current_interval = data->first_acceleration_interval;
 		return;
 	}
 
-	const uint64_t numerator = 2 * ramp->current_interval + ramp->interval_calculation_rest;
-	const uint64_t denominator = 4 * ramp->acceleration_idx;
+	const uint64_t numerator = 2 * data->current_interval + data->interval_calculation_rest;
+	const uint64_t denominator = 4 * data->acceleration_idx;
 
-	ramp->interval_calculation_rest = numerator % denominator;
-	ramp->current_interval -= numerator / denominator;
-
-	ramp->accel_steps_left--;
+	data->interval_calculation_rest = numerator % denominator;
+	data->current_interval -= numerator / denominator;
 }
 
-static void avr446_calculate_next_pre_decel_step(struct avr446_ramp_data *ramp)
+static void avr446_calculate_next_pre_decel_step(struct stepper_ramp_trapezoidal_data *data)
 {
-	const uint64_t numerator = 2 * ramp->current_interval + ramp->interval_calculation_rest;
-	const uint64_t denominator = 4 * (--ramp->pre_decel_steps_left + ramp->decel_steps_left);
+	const uint64_t numerator = 2 * data->current_interval + data->interval_calculation_rest;
+	const uint64_t denominator = 4 * (data->pre_decel_steps_left + data->decel_steps_left);
 
-	ramp->interval_calculation_rest = numerator % denominator;
-	ramp->current_interval += numerator / denominator;
+	data->interval_calculation_rest = numerator % denominator;
+	data->current_interval += numerator / denominator;
+
+	data->pre_decel_steps_left--;
 }
 
-static void avr446_calculate_next_decel_step(struct avr446_ramp_data *ramp)
+static void avr446_calculate_next_decel_step(struct stepper_ramp_trapezoidal_data *data)
 {
-	if (--ramp->decel_steps_left == 0) {
-		ramp->interval_calculation_rest = 0;
-		ramp->current_interval = ramp->last_deceleration_interval;
+	if (--data->decel_steps_left == 0) {
+		data->interval_calculation_rest = 0;
+		data->current_interval = data->last_deceleration_interval;
 		return;
 	}
 
-	const uint64_t numerator = 2 * ramp->current_interval + ramp->interval_calculation_rest;
-	const uint64_t denominator = 4 * ramp->decel_steps_left;
+	const uint64_t numerator = 2 * data->current_interval + data->interval_calculation_rest;
+	const uint64_t denominator = 4 * data->decel_steps_left;
 
-	ramp->interval_calculation_rest = numerator % denominator;
-	ramp->current_interval += numerator / denominator;
+	data->interval_calculation_rest = numerator % denominator;
+	data->current_interval += numerator / denominator;
 }
 
-static uint64_t prepare_move(struct avr446_ramp_data *ramp,
-                             const struct avr446_ramp_profile *profile,
+static uint64_t prepare_move(struct stepper_ramp_base *ramp,
                              const uint32_t step_count)
 {
+	const struct stepper_ramp_trapezoidal *self = (struct stepper_ramp_trapezoidal *)ramp;
+	struct stepper_ramp_trapezoidal_profile *profile = self->profile;
+	struct stepper_ramp_trapezoidal_data *data = self->data;
+
 	if (!profile) {
 		LOG_ERR("Error: Profile cannot be NULL");
 		return -EINVAL;
@@ -134,20 +140,19 @@ static uint64_t prepare_move(struct avr446_ramp_data *ramp,
 
 	LOG_DBG("Parameters: current_interval=%llu run_interval=%llu step_count=%u "
 	        "acceleration_rate=%u deceleration_rate=%u",
-	        ramp->current_interval,
+	        data->current_interval,
 	        profile->run_interval,
 	        step_count,
 	        profile->acceleration_rate,
 	        profile->deceleration_rate);
 
-	// TODO: use accel and decel idx
-	ramp->first_acceleration_interval = avr446_start_interval(profile->acceleration_rate);
+	data->first_acceleration_interval = avr446_start_interval(profile->acceleration_rate);
 
-	ramp->last_deceleration_interval = avr446_start_interval(profile->deceleration_rate);
+	data->last_deceleration_interval = avr446_start_interval(profile->deceleration_rate);
 
 	/* steps needed to stop from the current velocity */
 	const uint32_t stop_lim = avr446_acceleration_steps_needed(
-		ramp->current_interval, profile->deceleration_rate);
+		data->current_interval, profile->deceleration_rate);
 
 	/* steps needed to speed up from zero to requested velocity */
 	const uint32_t accel_lim = avr446_acceleration_steps_needed(
@@ -157,68 +162,71 @@ static uint64_t prepare_move(struct avr446_ramp_data *ramp,
 	const uint32_t decel_lim = avr446_acceleration_steps_needed(
 		profile->run_interval, profile->deceleration_rate);
 
-	if (ramp->current_interval != 0 && ramp->current_interval < profile->run_interval) {
+	if (data->current_interval != 0 && data->current_interval < profile->run_interval) {
 		/* the requested velocity is slower than the current one, slow down */
 
 		/* steps needed to decelerate from the current velocity to the requested one */
-		ramp->pre_decel_steps_left = stop_lim - decel_lim;
+		data->pre_decel_steps_left = stop_lim - decel_lim;
 
-		ramp->accel_steps_left = 0;
-		ramp->acceleration_idx = 0;
+		data->accel_steps_left = 0;
+		data->acceleration_idx = 0;
 
 		const uint32_t total_decel_steps =
-			ramp->pre_decel_steps_left + ramp->decel_steps_left;
+			data->pre_decel_steps_left + data->decel_steps_left;
 		if (total_decel_steps < step_count) {
-			ramp->run_steps_left = step_count - total_decel_steps;
+			data->run_steps_left = step_count - total_decel_steps;
 		} else {
-			ramp->run_steps_left = 0;
+			data->run_steps_left = 0;
 		}
 
-		ramp->acceleration_idx = accel_lim;
+		data->acceleration_idx = accel_lim;
 
-		ramp->decel_steps_left = decel_lim;
+		data->decel_steps_left = decel_lim;
 	}
 
-	if (ramp->current_interval == 0 || ramp->current_interval > profile->run_interval) {
+	if (data->current_interval == 0 || data->current_interval > profile->run_interval) {
 		/* the requested velocity is faster than the current one, speed up */
 
-		ramp->pre_decel_steps_left = 0;
+		data->pre_decel_steps_left = 0;
 
 		/* steps needed to speed up from the current velocity to the requested one */
-		ramp->accel_steps_left = accel_lim - stop_lim;
+		data->accel_steps_left = accel_lim - stop_lim;
 
-		if (ramp->accel_steps_left + decel_lim >= step_count) {
-			ramp->decel_steps_left = step_count * profile->acceleration_rate /
+		if (data->accel_steps_left + decel_lim >= step_count) {
+			data->decel_steps_left = step_count * profile->acceleration_rate /
 			                         (profile->deceleration_rate +
 			                          profile->acceleration_rate);
-			ramp->accel_steps_left = step_count - ramp->decel_steps_left;
+			data->accel_steps_left = step_count - data->decel_steps_left;
 		} else {
-			ramp->decel_steps_left = decel_lim;
+			data->decel_steps_left = decel_lim;
 		}
 
-		ramp->run_steps_left = step_count - ramp->accel_steps_left - ramp->decel_steps_left;
+		data->run_steps_left = step_count - data->accel_steps_left - data->decel_steps_left;
 
-		ramp->acceleration_idx = 0;
+		data->acceleration_idx = 0;
 	}
 
-	ramp->run_interval = profile->run_interval;
+	data->run_interval = profile->run_interval;
 
 	LOG_DBG(
 		"Distance Profile: pre_decel_steps=%d accel_steps=%d run_steps=%d decel_steps=%d "
 		"for steps=%d",
-		ramp->pre_decel_steps_left, ramp->accel_steps_left, ramp->run_steps_left,
-		ramp->decel_steps_left, step_count);
+		data->pre_decel_steps_left, data->accel_steps_left, data->run_steps_left,
+		data->decel_steps_left, step_count);
 
-	return ramp->pre_decel_steps_left
-	       + ramp->accel_steps_left
-	       + ramp->run_steps_left
-	       + ramp->decel_steps_left;
+	return data->pre_decel_steps_left
+	       + data->accel_steps_left
+	       + data->run_steps_left
+	       + data->decel_steps_left;
 }
 
-static uint64_t prepare_stop(struct avr446_ramp_data *ramp,
-                             const struct avr446_ramp_profile *profile)
+static uint64_t prepare_stop(struct stepper_ramp_base *ramp)
 {
 	LOG_DBG("Prepare decelerated stop");
+
+	const struct stepper_ramp_trapezoidal *self = (struct stepper_ramp_trapezoidal *)ramp;
+	struct stepper_ramp_trapezoidal_profile *profile = self->profile;
+	struct stepper_ramp_trapezoidal_data *data = self->data;
 
 	if (!profile) {
 		LOG_ERR("Error: Profile cannot be NULL");
@@ -232,37 +240,40 @@ static uint64_t prepare_stop(struct avr446_ramp_data *ramp,
 	}
 
 	const uint32_t deceleration_steps = avr446_acceleration_steps_needed(
-		ramp->current_interval, profile->deceleration_rate);
+		data->current_interval, profile->deceleration_rate);
 
-	ramp->pre_decel_steps_left = 0;
-	ramp->accel_steps_left = 0;
-	ramp->run_steps_left = 0;
-	ramp->run_interval = 0;
-	ramp->decel_steps_left = deceleration_steps;
+	data->pre_decel_steps_left = 0;
+	data->accel_steps_left = 0;
+	data->run_steps_left = 0;
+	data->run_interval = 0;
+	data->decel_steps_left = deceleration_steps;
 
 	return deceleration_steps;
 }
 
-static uint64_t get_next_interval(struct avr446_ramp_data *ramp)
+static uint64_t get_next_interval(struct stepper_ramp_base *ramp)
 {
-	if (ramp->pre_decel_steps_left > 0) {
-		avr446_calculate_next_pre_decel_step(ramp);
-	} else if (ramp->accel_steps_left > 0) {
-		avr446_calculate_next_accel_step(ramp);
-	} else if (ramp->run_steps_left > 0) {
-		ramp->run_steps_left--;
-		ramp->current_interval = ramp->run_interval;
-	} else if (ramp->decel_steps_left > 0) {
-		avr446_calculate_next_decel_step(ramp);
+	const struct stepper_ramp_trapezoidal *self = (struct stepper_ramp_trapezoidal *)ramp;
+	struct stepper_ramp_trapezoidal_data *data = self->data;
+
+	if (data->pre_decel_steps_left > 0) {
+		avr446_calculate_next_pre_decel_step(data);
+	} else if (data->accel_steps_left > 0) {
+		avr446_calculate_next_accel_step(data);
+	} else if (data->run_steps_left > 0) {
+		data->run_steps_left--;
+		data->current_interval = data->run_interval;
+	} else if (data->decel_steps_left > 0) {
+		avr446_calculate_next_decel_step(data);
 	} else {
 		/* movement finished */
-		ramp->current_interval = 0;
+		data->current_interval = 0;
 	}
 
-	return ramp->current_interval;
+	return data->current_interval;
 }
 
-const struct stepper_ramp_api trapezoidal_ramp_api = {
+const struct stepper_ramp_api stepper_ramp_trapezoidal_api = {
 	.prepare_move = prepare_move,
 	.prepare_stop = prepare_stop,
 	.get_next_interval = get_next_interval,

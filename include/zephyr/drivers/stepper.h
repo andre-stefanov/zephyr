@@ -71,7 +71,7 @@ enum stepper_micro_step_resolution {
  */
 enum stepper_direction {
 	/** Negative direction */
-	STEPPER_DIRECTION_NEGATIVE = 0,
+	STEPPER_DIRECTION_NEGATIVE = -1,
 	/** Positive direction */
 	STEPPER_DIRECTION_POSITIVE = 1,
 };
@@ -94,16 +94,11 @@ enum stepper_event {
 	STEPPER_EVENT_FAULT_DETECTED = 5,
 };
 
-/**
- * @brief Stepper ramp profile
- */
-struct stepper_ramp_profile {
-	/** Ramp acceleration in micro-steps per second squared */
-	uint32_t acceleration;
-	/** Ramp deceleration in micro-steps per second squared */
-	uint32_t deceleration;
-	/** Ramp minimal step interval (max. velocity) in nanoseconds */
-	uint64_t min_interval;
+struct stepper_ramp_api;
+
+struct stepper_ramp_base
+{
+	struct stepper_ramp_api *const api;
 };
 
 /**
@@ -171,12 +166,12 @@ typedef int (*stepper_set_event_callback_t)(const struct device *dev,
 					    stepper_event_callback_t callback, void *user_data);
 
 /**
- * @brief Set the ramp profile.
+ * @brief Set the ramp to be used for the stepper
  *
- * @see stepper_set_ramp_profile() for details.
+ * @see stepper_set_ramp() for details.
  */
-typedef int (*stepper_set_ramp_profile_t)(const struct device *dev,
-					  const struct stepper_ramp_profile *ramp_profile);
+typedef int (*stepper_set_ramp_t)(const struct device *dev, struct stepper_ramp_base *ramp);
+
 /**
  * @brief Move the stepper relatively by a given number of micro-steps.
  *
@@ -223,7 +218,7 @@ __subsystem struct stepper_driver_api {
 	stepper_set_reference_position_t set_reference_position;
 	stepper_get_actual_position_t get_actual_position;
 	stepper_set_event_callback_t set_event_callback;
-	stepper_set_ramp_profile_t set_ramp_profile;
+	stepper_set_ramp_t set_ramp;
 	stepper_move_by_t move_by;
 	stepper_move_to_t move_to;
 	stepper_run_t run;
@@ -394,28 +389,27 @@ static inline int z_impl_stepper_set_event_callback(const struct device *dev,
 }
 
 /**
- * @brief Set the ramp profile
+ * @brief Set the motion ramp for the stepper
  *
- * @param dev pointer to the stepper driver instance
- * @param ramp_profile pointer to the ramp profile structure
+ * @details Configures the acceleration and deceleration profile used when moving the stepper motor.
+ * The ramp defines how the stepper speeds up and decelerates, allowing for smooth motion control.
  *
- * @retval -EIO General input / output error
- * @retval -EINVAL If the requested ramp profile is not supported
+ * @param dev Pointer to the stepper driver instance
+ * @param ramp Pointer to ramp configuration structure
+ *
  * @retval -ENOSYS If not implemented by device driver
  * @retval 0 Success
+ * @retval -errno Other negative errno codes depending on implementation
  */
-__syscall int stepper_set_ramp_profile(const struct device *dev,
-				       const struct stepper_ramp_profile *ramp_profile);
+__syscall int stepper_set_ramp(const struct device *dev, struct stepper_ramp_base *ramp);
 
-static inline int z_impl_stepper_set_ramp_profile(const struct device *dev,
-						  const struct stepper_ramp_profile *ramp_profile)
+static inline int z_impl_stepper_set_ramp(const struct device *dev, struct stepper_ramp_base *ramp)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
-
-	if (api->set_ramp_profile == NULL) {
+	if (api->set_ramp == NULL) {
 		return -ENOSYS;
 	}
-	return api->set_ramp_profile(dev, ramp_profile);
+	return api->set_ramp(dev, ramp);
 }
 
 /**

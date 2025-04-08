@@ -26,6 +26,7 @@ struct tmc22xx_config
 struct tmc22xx_data
 {
 	enum stepper_micro_step_resolution resolution;
+	enum stepper_direction direction;
 	int32_t position;
 
 	stepper_event_callback_t event_callback;
@@ -48,19 +49,14 @@ static int tmc22xx_stepper_disable(const struct device *dev)
 	return gpio_pin_set_dt(&config->enable_pin, 1);
 }
 
-static int tmc22xx_stepper_step(const struct device *dev, const enum stepper_direction direction)
+static int tmc22xx_stepper_step(const struct device *dev)
 {
 	const struct tmc22xx_config *config = dev->config;
+	struct tmc22xx_data *data = dev->data;
 
 	// TODO: handle invert direction here
 	// TODO: handle dual edge here
-	int ret = gpio_pin_set_dt(&config->dir_pin, direction);
-
-	if (ret < 0) {
-		LOG_ERR("Failed to set direction pin: %d", ret);
-		return ret;
-	}
-	ret = gpio_pin_set_dt(&config->step_pin, 1);
+	int ret = gpio_pin_set_dt(&config->step_pin, 1);
 	if (ret < 0) {
 		LOG_ERR("Failed to set step pin: %d", ret);
 		return ret;
@@ -69,6 +65,21 @@ static int tmc22xx_stepper_step(const struct device *dev, const enum stepper_dir
 	ret = gpio_pin_set_dt(&config->step_pin, 0);
 	if (ret < 0) {
 		LOG_ERR("Failed to set step pin: %d", ret);
+		return ret;
+	}
+
+	data->position += data->direction;
+
+	return 0;
+}
+
+static int tmc22xx_stepper_set_dir(const struct device *dev, const enum stepper_direction direction)
+{
+	const struct tmc22xx_config *config = dev->config;
+	const int dir_value = (direction == STEPPER_DIRECTION_POSITIVE) ? 1 : 0;
+	const int ret = gpio_pin_set_dt(&config->dir_pin, dir_value);
+	if (ret < 0) {
+		LOG_ERR("Failed to set direction pin: %d", ret);
 		return ret;
 	}
 
@@ -232,6 +243,8 @@ static int tmc22xx_stepper_init(const struct device *dev)
 		return ret;
 	}
 
+	tmc22xx_stepper_set_dir(dev, STEPPER_DIRECTION_POSITIVE);
+
 	if (config->msx_pins) {
 		ret = tmc22xx_stepper_configure_msx_pins(dev);
 		if (ret < 0) {
@@ -255,6 +268,12 @@ static int tmc22xx_stepper_init(const struct device *dev)
 	return 0;
 }
 
+static const struct stepper_motion_controller_callbacks_api motion_controller_callbacks = {
+	.step = tmc22xx_stepper_step,
+	.set_direction = tmc22xx_stepper_set_dir,
+	.event = tmc22xx_handle_stepper_event,
+};
+
 static DEVICE_API(stepper, tmc22xx_stepper_api) = {
 	.enable = tmc22xx_stepper_enable,
 	.disable = tmc22xx_stepper_disable,
@@ -268,13 +287,11 @@ static DEVICE_API(stepper, tmc22xx_stepper_api) = {
 	.set_event_callback = tmc22xx_set_event_callback,
 	.set_micro_step_res = tmc22xx_stepper_set_micro_step_res,
 	.get_micro_step_res = tmc22xx_stepper_get_micro_step_res,
-	.set_ramp_profile = stepper_motion_controller_set_ramp_profile,
+	.set_ramp = stepper_motion_controller_set_ramp,
 };
 
 #define TMC22XX_STEPPER_DEFINE(inst, msx_table)                                                    \
-	STEPPER_MOTION_CONTROLLER_DT_INST_DEFINE(inst,						   \
-						 &tmc22xx_stepper_step,				   \
-						 &tmc22xx_handle_stepper_event)			   \
+	STEPPER_MOTION_CONTROLLER_DT_INST_DEFINE(inst, &motion_controller_callbacks)		   \
 	IF_ENABLED(DT_INST_NODE_HAS_PROP(inst, msx_gpios), (                                       \
 	static const struct gpio_dt_spec tmc22xx_stepper_msx_pins_##inst[] = {                     \
 		DT_INST_FOREACH_PROP_ELEM_SEP(                                                     \
