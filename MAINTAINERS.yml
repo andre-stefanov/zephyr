@@ -1995,7 +1995,9 @@ Release Notes:
     - sample.drivers.espi.ps2
 
 "Drivers: PTP Clock":
-  status: odd fixes
+  status: maintained
+  maintainers:
+    - yangbolu1991
   files:
     - drivers/ptp_clock/
     - include/zephyr/drivers/ptp_clock.h
@@ -4947,6 +4949,18 @@ West:
   files: []
   labels:
     - "platform: ADI"
+
+"West project: hal_afbr":
+  status: maintained
+  maintainers:
+    - ubieda
+    - bperseghetti
+  collaborators:
+    - PetervdPerk-NXP
+    - jgoppert
+  files: []
+  labels:
+    - "platform: Broadcom"
 
 "West project: hal_ambiq":
   status: odd fixes
