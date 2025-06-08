@@ -197,44 +197,44 @@ typedef int (*stepper_set_event_callback_t)(const struct device *dev,
 /**
  * @brief Set the ramp to be used for the stepper
  *
- * @see stepper_set_ramp() for details.
+ * @see stepper_motion_set_ramp() for details.
  */
-typedef int (*stepper_set_ramp_t)(const struct device *dev, const struct stepper_ramp_profile *ramp);
+typedef int (*stepper_motion_set_ramp_t)(const struct device *dev, const struct stepper_ramp_profile *ramp);
 
 /**
  * @brief Move the stepper relatively by a given number of micro-steps.
  *
- * @see stepper_move_by() for details.
+ * @see stepper_motion_move_by() for details.
  */
-typedef int (*stepper_move_by_t)(const struct device *dev, const int32_t micro_steps);
+typedef int (*stepper_motion_move_by_t)(const struct device *dev, const int32_t micro_steps);
 
 /**
  * @brief Move the stepper to an absolute position in micro-steps.
  *
- * @see stepper_move_to() for details.
+ * @see stepper_motion_move_to() for details.
  */
-typedef int (*stepper_move_to_t)(const struct device *dev, const int32_t micro_steps);
+typedef int (*stepper_motion_move_to_t)(const struct device *dev, const int32_t micro_steps);
 
 /**
  * @brief Run the stepper with a given step interval in a given direction
  *
- * @see stepper_run() for details.
+ * @see stepper_motion_run() for details.
  */
-typedef int (*stepper_run_t)(const struct device *dev, const enum stepper_direction direction);
+typedef int (*stepper_motion_run_t)(const struct device *dev, const enum stepper_direction direction);
 
 /**
  * @brief Stop the stepper
  *
- * @see stepper_stop() for details.
+ * @see stepper_motion_stop() for details.
  */
-typedef int (*stepper_stop_t)(const struct device *dev);
+typedef int (*stepper_motion_stop_t)(const struct device *dev);
 
 /**
  * @brief Is the target position fo the stepper reached
  *
- * @see stepper_is_moving() for details.
+ * @see stepper_motion_is_moving() for details.
  */
-typedef int (*stepper_is_moving_t)(const struct device *dev, bool *is_moving);
+typedef int (*stepper_motion_is_moving_t)(const struct device *dev, bool *is_moving);
 
 /**
  * @brief Perform a single step in the specified direction
@@ -254,12 +254,12 @@ __subsystem struct stepper_driver_api {
 	stepper_set_reference_position_t set_reference_position;
 	stepper_get_actual_position_t get_actual_position;
 	stepper_set_event_callback_t set_event_callback;
-	stepper_set_ramp_t set_ramp;
-	stepper_move_by_t move_by;
-	stepper_move_to_t move_to;
-	stepper_run_t run;
-	stepper_stop_t stop;
-	stepper_is_moving_t is_moving;
+	stepper_motion_set_ramp_t motion_set_ramp;
+	stepper_motion_move_by_t motion_move_by;
+	stepper_motion_move_to_t motion_move_to;
+	stepper_motion_run_t motion_run;
+	stepper_motion_stop_t motion_stop;
+	stepper_motion_is_moving_t motion_is_moving;
 	stepper_step_t step;
 };
 
@@ -438,15 +438,15 @@ static inline int z_impl_stepper_set_event_callback(const struct device *dev,
  * @retval 0 Success
  * @retval -errno Other negative errno codes depending on implementation
  */
-__syscall int stepper_set_ramp(const struct device *dev, struct stepper_ramp_profile *ramp);
+__syscall int stepper_motion_set_ramp(const struct device *dev, struct stepper_ramp_profile *ramp);
 
-static inline int z_impl_stepper_set_ramp(const struct device *dev, struct stepper_ramp_profile *ramp)
+static inline int z_impl_stepper_motion_set_ramp(const struct device *dev, struct stepper_ramp_profile *ramp)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
-	if (api->set_ramp == NULL) {
+	if (api->motion_set_ramp == NULL) {
 		return -ENOSYS;
 	}
-	return api->set_ramp(dev, ramp);
+	return api->motion_set_ramp(dev, ramp);
 }
 
 /**
@@ -462,13 +462,13 @@ static inline int z_impl_stepper_set_ramp(const struct device *dev, struct stepp
  * @retval -EIO General input / output error
  * @retval 0 Success
  */
-__syscall int stepper_move_by(const struct device *dev, int32_t micro_steps);
+__syscall int stepper_motion_move_by(const struct device *dev, int32_t micro_steps);
 
-static inline int z_impl_stepper_move_by(const struct device *dev, const int32_t micro_steps)
+static inline int z_impl_stepper_motion_move_by(const struct device *dev, const int32_t micro_steps)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
 
-	return api->move_by(dev, micro_steps);
+	return api->motion_move_by(dev, micro_steps);
 }
 
 /**
@@ -485,16 +485,16 @@ static inline int z_impl_stepper_move_by(const struct device *dev, const int32_t
  * @retval -ENOSYS If not implemented by device driver
  * @retval 0 Success
  */
-__syscall int stepper_move_to(const struct device *dev, int32_t micro_steps);
+__syscall int stepper_motion_move_to(const struct device *dev, int32_t micro_steps);
 
-static inline int z_impl_stepper_move_to(const struct device *dev, const int32_t micro_steps)
+static inline int z_impl_stepper_motion_move_to(const struct device *dev, const int32_t micro_steps)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
 
-	if (api->move_to == NULL) {
+	if (api->motion_move_to == NULL) {
 		return -ENOSYS;
 	}
-	return api->move_to(dev, micro_steps);
+	return api->motion_move_to(dev, micro_steps);
 }
 
 /**
@@ -512,17 +512,17 @@ static inline int z_impl_stepper_move_to(const struct device *dev, const int32_t
  * @retval -ENOSYS If not implemented by device driver
  * @retval 0 Success
  */
-__syscall int stepper_run(const struct device *dev, enum stepper_direction direction);
+__syscall int stepper_motion_run(const struct device *dev, enum stepper_direction direction);
 
-static inline int z_impl_stepper_run(const struct device *dev,
+static inline int z_impl_stepper_motion_run(const struct device *dev,
 				     const enum stepper_direction direction)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
 
-	if (api->run == NULL) {
+	if (api->motion_run == NULL) {
 		return -ENOSYS;
 	}
-	return api->run(dev, direction);
+	return api->motion_run(dev, direction);
 }
 
 /**
@@ -535,16 +535,16 @@ static inline int z_impl_stepper_run(const struct device *dev,
  * @retval -ENOSYS If not implemented by device driver
  * @retval 0 Success
  */
-__syscall int stepper_stop(const struct device *dev);
+__syscall int stepper_motion_stop(const struct device *dev);
 
-static inline int z_impl_stepper_stop(const struct device *dev)
+static inline int z_impl_stepper_motion_stop(const struct device *dev)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
 
-	if (api->stop == NULL) {
+	if (api->motion_stop == NULL) {
 		return -ENOSYS;
 	}
-	return api->stop(dev);
+	return api->motion_stop(dev);
 }
 
 /**
@@ -557,16 +557,16 @@ static inline int z_impl_stepper_stop(const struct device *dev)
  * @retval -ENOSYS If not implemented by device driver
  * @retval 0 Success
  */
-__syscall int stepper_is_moving(const struct device *dev, bool *is_moving);
+__syscall int stepper_motion_is_moving(const struct device *dev, bool *is_moving);
 
-static inline int z_impl_stepper_is_moving(const struct device *dev, bool *is_moving)
+static inline int z_impl_stepper_motion_is_moving(const struct device *dev, bool *is_moving)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
 
-	if (api->is_moving == NULL) {
+	if (api->motion_is_moving == NULL) {
 		return -ENOSYS;
 	}
-	return api->is_moving(dev, is_moving);
+	return api->motion_is_moving(dev, is_moving);
 }
 
 /**
@@ -598,6 +598,37 @@ static inline int z_impl_stepper_step(const struct device *dev, enum stepper_dir
 /**
  * @}
  */
+
+/* Backward compatibility aliases for motion control functions */
+__deprecated static inline int stepper_set_ramp(const struct device *dev, struct stepper_ramp_profile *ramp)
+{
+	return stepper_motion_set_ramp(dev, ramp);
+}
+
+__deprecated static inline int stepper_move_by(const struct device *dev, int32_t micro_steps)
+{
+	return stepper_motion_move_by(dev, micro_steps);
+}
+
+__deprecated static inline int stepper_move_to(const struct device *dev, int32_t micro_steps)
+{
+	return stepper_motion_move_to(dev, micro_steps);
+}
+
+__deprecated static inline int stepper_run(const struct device *dev, enum stepper_direction direction)
+{
+	return stepper_motion_run(dev, direction);
+}
+
+__deprecated static inline int stepper_stop(const struct device *dev)
+{
+	return stepper_motion_stop(dev);
+}
+
+__deprecated static inline int stepper_is_moving(const struct device *dev, bool *is_moving)
+{
+	return stepper_motion_is_moving(dev, is_moving);
+}
 
 #ifdef __cplusplus
 }

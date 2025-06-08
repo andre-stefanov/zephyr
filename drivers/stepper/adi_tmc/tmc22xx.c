@@ -223,17 +223,17 @@ static const struct stepper_motion_controller_callbacks_api motion_controller_ca
 static DEVICE_API(stepper, tmc22xx_stepper_api) = {
 	.enable = tmc22xx_stepper_enable,
 	.disable = tmc22xx_stepper_disable,
-	.move_by = stepper_motion_controller_move_by,
-	.is_moving = stepper_motion_controller_is_moving,
+	.motion_move_by = stepper_motion_controller_move_by,
+	.motion_is_moving = stepper_motion_controller_is_moving,
 	.set_reference_position = stepper_motion_controller_set_position,
 	.get_actual_position = stepper_motion_controller_get_position,
-	.move_to = stepper_motion_controller_move_to,
-	.run = stepper_motion_controller_run,
-	.stop = stepper_motion_controller_stop,
+	.motion_move_to = stepper_motion_controller_move_to,
+	.motion_run = stepper_motion_controller_run,
+	.motion_stop = stepper_motion_controller_stop,
 	.set_event_callback = tmc22xx_stepper_set_event_callback,
 	.set_micro_step_res = tmc22xx_stepper_set_micro_step_res,
 	.get_micro_step_res = tmc22xx_stepper_get_micro_step_res,
-	.set_ramp = stepper_motion_controller_set_ramp,
+	.motion_set_ramp = stepper_motion_controller_set_ramp,
 	.step = tmc22xx_stepper_step,
 };
 

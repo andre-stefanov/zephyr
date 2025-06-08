@@ -89,7 +89,7 @@ static void button_pressed(struct input_event *event, void *user_data)
 			LOG_INF("Ramp type: trapezoidal");
 			current_ramp_profile = &ramp_constant_profile;
 		}
-		stepper_set_ramp(stepper, current_ramp_profile);
+		stepper_motion_set_ramp(stepper, current_ramp_profile);
 	}
 
 	k_sem_give(&stepper_generic_sem);
@@ -117,25 +117,25 @@ int main(void)
 			break;
 		case STEPPER_MODE_STOP:
 			LOG_INF("mode: stop");
-			stepper_stop(stepper);
+			stepper_motion_stop(stepper);
 			break;
 		case STEPPER_MODE_ROTATE_CW:
 			LOG_INF("mode: rotate cw");
-			stepper_run(stepper, STEPPER_DIRECTION_POSITIVE);
+			stepper_motion_run(stepper, STEPPER_DIRECTION_POSITIVE);
 			break;
 		case STEPPER_MODE_ROTATE_CCW:
 			LOG_INF("mode: rotate ccw");
-			stepper_run(stepper, STEPPER_DIRECTION_NEGATIVE);
+			stepper_motion_run(stepper, STEPPER_DIRECTION_NEGATIVE);
 			break;
 		case STEPPER_MODE_PING_PONG_RELATIVE:
 			LOG_INF("mode: ping pong relative");
 			ping_pong_target_position *= -1;
-			stepper_move_by(stepper, ping_pong_target_position);
+			stepper_motion_move_by(stepper, ping_pong_target_position);
 			break;
 		case STEPPER_MODE_PING_PONG_ABSOLUTE:
 			LOG_INF("mode: ping pong absolute");
 			ping_pong_target_position *= -1;
-			stepper_move_to(stepper, ping_pong_target_position);
+			stepper_motion_move_to(stepper, ping_pong_target_position);
 			break;
 		case STEPPER_MODE_DISABLE:
 			LOG_INF("mode: disable");
