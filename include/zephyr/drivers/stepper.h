@@ -175,16 +175,16 @@ typedef int (*stepper_get_micro_step_res_t)(const struct device *dev,
 /**
  * @brief Set the reference position of the stepper
  *
- * @see stepper_set_actual_position() for details.
+ * @see stepper_motion_set_position() for details.
  */
-typedef int (*stepper_set_reference_position_t)(const struct device *dev, const int32_t value);
+typedef int (*stepper_motion_set_position_t)(const struct device *dev, const int32_t value);
 
 /**
  * @brief Get the actual a.k.a reference position of the stepper
  *
- * @see stepper_get_actual_position() for details.
+ * @see stepper_motion_get_position() for details.
  */
-typedef int (*stepper_get_actual_position_t)(const struct device *dev, int32_t *value);
+typedef int (*stepper_motion_get_position_t)(const struct device *dev, int32_t *value);
 
 /**
  * @brief Callback function for stepper hardware events
@@ -271,8 +271,8 @@ __subsystem struct stepper_driver_api {
 	stepper_disable_t disable;
 	stepper_set_micro_step_res_t set_micro_step_res;
 	stepper_get_micro_step_res_t get_micro_step_res;
-	stepper_set_reference_position_t set_reference_position;
-	stepper_get_actual_position_t get_actual_position;
+	stepper_motion_set_position_t motion_set_position;
+	stepper_motion_get_position_t motion_get_position;
 	stepper_set_event_callback_t set_event_callback;
 	stepper_motion_set_event_callback_t motion_set_event_callback;
 	stepper_motion_set_ramp_t motion_set_ramp;
@@ -385,17 +385,17 @@ static inline int z_impl_stepper_get_micro_step_res(const struct device *dev,
  * @retval -ENOSYS If not implemented by device driver
  * @retval 0 Success
  */
-__syscall int stepper_set_reference_position(const struct device *dev, int32_t value);
+__syscall int stepper_motion_set_position(const struct device *dev, int32_t value);
 
-static inline int z_impl_stepper_set_reference_position(const struct device *dev,
-							const int32_t value)
+static inline int z_impl_stepper_motion_set_position(const struct device *dev,
+						     const int32_t value)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
 
-	if (api->set_reference_position == NULL) {
+	if (api->motion_set_position == NULL) {
 		return -ENOSYS;
 	}
-	return api->set_reference_position(dev, value);
+	return api->motion_set_position(dev, value);
 }
 
 /**
@@ -408,16 +408,16 @@ static inline int z_impl_stepper_set_reference_position(const struct device *dev
  * @retval -ENOSYS If not implemented by device driver
  * @retval 0 Success
  */
-__syscall int stepper_get_actual_position(const struct device *dev, int32_t *value);
+__syscall int stepper_motion_get_position(const struct device *dev, int32_t *value);
 
-static inline int z_impl_stepper_get_actual_position(const struct device *dev, int32_t *value)
+static inline int z_impl_stepper_motion_get_position(const struct device *dev, int32_t *value)
 {
 	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
 
-	if (api->get_actual_position == NULL) {
+	if (api->motion_get_position == NULL) {
 		return -ENOSYS;
 	}
-	return api->get_actual_position(dev, value);
+	return api->motion_get_position(dev, value);
 }
 
 /**
@@ -645,7 +645,6 @@ static inline int z_impl_stepper_step(const struct device *dev, enum stepper_dir
 /**
  * @}
  */
-
 #ifdef __cplusplus
 }
 #endif

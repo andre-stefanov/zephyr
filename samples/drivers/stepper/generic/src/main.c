@@ -107,7 +107,7 @@ int main(void)
 	LOG_DBG("stepper is %p, name is %s", stepper, stepper->name);
 
 	stepper_motion_set_event_callback(stepper, stepper_callback, NULL);
-	stepper_set_reference_position(stepper, 0);
+	stepper_motion_set_position(stepper, 0);
 
 	do {
 		switch (current_mode) {
@@ -155,7 +155,7 @@ static void monitor_thread(void)
 	for (;;) {
 		int32_t actual_position;
 
-		stepper_get_actual_position(stepper, &actual_position);
+		stepper_motion_get_position(stepper, &actual_position);
 		LOG_DBG("Actual position: %d", actual_position);
 		k_sleep(K_MSEC(CONFIG_MONITOR_THREAD_TIMEOUT_MS));
 	}
