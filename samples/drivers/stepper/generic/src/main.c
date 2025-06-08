@@ -55,14 +55,14 @@ static int32_t ping_pong_target_position =
 
 static K_SEM_DEFINE(stepper_generic_sem, 0, 1);
 
-static void stepper_callback(const struct device *dev, const enum stepper_event event,
+static void stepper_callback(const struct device *dev, const enum stepper_motion_event event,
 			     void *user_data)
 {
 	ARG_UNUSED(dev);
 	ARG_UNUSED(user_data);
 
 	switch (event) {
-	case STEPPER_EVENT_STEPS_COMPLETED:
+	case STEPPER_MOTION_EVENT_STEPS_COMPLETED:
 		LOG_DBG("Steps completed");
 		k_sem_give(&stepper_generic_sem);
 		break;
@@ -106,7 +106,7 @@ int main(void)
 	}
 	LOG_DBG("stepper is %p, name is %s", stepper, stepper->name);
 
-	stepper_set_event_callback(stepper, stepper_callback, NULL);
+	stepper_motion_set_event_callback(stepper, stepper_callback, NULL);
 	stepper_set_reference_position(stepper, 0);
 
 	do {

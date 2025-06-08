@@ -27,7 +27,7 @@ typedef void (*stepper_motion_controller_set_direction_callback_t)(const struct 
 								   enum stepper_direction);
 
 typedef void (*stepper_motion_controller_event_callback_t)(const struct device *,
-							   enum stepper_event);
+							   enum stepper_motion_event);
 
 struct stepper_motion_controller_callbacks_api {
 	stepper_motion_controller_step_callback_t step;

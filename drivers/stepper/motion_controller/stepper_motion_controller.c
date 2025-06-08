@@ -150,7 +150,7 @@ static inline void stepper_motion_controller_handle_next_interval(
 		} else {
 			/* FINAL CASE: All movement completed - notify completion */
 			LOG_DBG("Motion completed");
-			config->callbacks->event(dev, STEPPER_EVENT_STEPS_COMPLETED);
+			config->callbacks->event(dev, STEPPER_MOTION_EVENT_STEPS_COMPLETED);
 		}
 	}
 }
@@ -363,7 +363,7 @@ int stepper_motion_controller_move_to(const struct device *dev, const int32_t po
 		if (relative_steps == 0) {
 			/* Already at target position */
 			LOG_DBG("Already at target position - signaling completion");
-			config->callbacks->event(dev, STEPPER_EVENT_STEPS_COMPLETED);
+			config->callbacks->event(dev, STEPPER_MOTION_EVENT_STEPS_COMPLETED);
 			return 0;
 		}
 

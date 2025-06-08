@@ -31,7 +31,7 @@ struct tmc22xx_data {
 	struct stepper_motion_controller_data motion_controller_data;
 	// TMC22xx specific data
 	enum stepper_micro_step_resolution resolution;
-	stepper_event_callback_t event_callback;
+	stepper_motion_event_callback_t event_callback;
 	void *event_callback_user_data;
 };
 
@@ -51,8 +51,8 @@ static int tmc22xx_stepper_disable(const struct device *dev)
 	return gpio_pin_set_dt(&config->en_pin, 0);
 }
 
-static int tmc22xx_stepper_set_event_callback(const struct device *dev,
-					      stepper_event_callback_t callback, void *user_data)
+static int tmc22xx_stepper_motion_set_event_callback(const struct device *dev,
+					      stepper_motion_event_callback_t callback, void *user_data)
 {
 	struct tmc22xx_data *data = dev->data;
 
@@ -205,7 +205,7 @@ static void tmc22xx_set_direction_callback(const struct device *dev,
 	step_dir_interface_set_dir(&config->interface_config, direction);
 }
 
-static void tmc22xx_event_callback(const struct device *dev, enum stepper_event event)
+static void tmc22xx_event_callback(const struct device *dev, enum stepper_motion_event event)
 {
 	struct tmc22xx_data *data = dev->data;
 
@@ -230,7 +230,7 @@ static DEVICE_API(stepper, tmc22xx_stepper_api) = {
 	.motion_move_to = stepper_motion_controller_move_to,
 	.motion_run = stepper_motion_controller_run,
 	.motion_stop = stepper_motion_controller_stop,
-	.set_event_callback = tmc22xx_stepper_set_event_callback,
+	.motion_set_event_callback = tmc22xx_stepper_motion_set_event_callback,
 	.set_micro_step_res = tmc22xx_stepper_set_micro_step_res,
 	.get_micro_step_res = tmc22xx_stepper_get_micro_step_res,
 	.motion_set_ramp = stepper_motion_controller_set_ramp,

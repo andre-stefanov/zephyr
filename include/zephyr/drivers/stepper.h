@@ -77,21 +77,27 @@ enum stepper_direction {
 };
 
 /**
- * @brief Stepper Events
+ * @brief Stepper Hardware Events
  */
 enum stepper_event {
-	/** Steps set using move_by or move_to have been executed */
-	STEPPER_EVENT_STEPS_COMPLETED = 0,
 	/** Stall detected */
-	STEPPER_EVENT_STALL_DETECTED = 1,
+	STEPPER_EVENT_STALL_DETECTED = 0,
 	/** Left end switch status changes to pressed */
-	STEPPER_EVENT_LEFT_END_STOP_DETECTED = 2,
+	STEPPER_EVENT_LEFT_END_STOP_DETECTED = 1,
 	/** Right end switch status changes to pressed */
-	STEPPER_EVENT_RIGHT_END_STOP_DETECTED = 3,
-	/** Stepper has stopped */
-	STEPPER_EVENT_STOPPED = 4,
+	STEPPER_EVENT_RIGHT_END_STOP_DETECTED = 2,
 	/** Fault with the stepper controller detected */
-	STEPPER_EVENT_FAULT_DETECTED = 5,
+	STEPPER_EVENT_FAULT_DETECTED = 3,
+};
+
+/**
+ * @brief Stepper Motion Control Events
+ */
+enum stepper_motion_event {
+	/** Steps set using move_by or move_to have been executed */
+	STEPPER_MOTION_EVENT_STEPS_COMPLETED = 0,
+	/** Stepper has stopped */
+	STEPPER_MOTION_EVENT_STOPPED = 1,
 };
 
 enum stepper_ramp_type {
@@ -181,18 +187,32 @@ typedef int (*stepper_set_reference_position_t)(const struct device *dev, const 
 typedef int (*stepper_get_actual_position_t)(const struct device *dev, int32_t *value);
 
 /**
- * @brief Callback function for stepper events
+ * @brief Callback function for stepper hardware events
  */
 typedef void (*stepper_event_callback_t)(const struct device *dev, const enum stepper_event event,
 					 void *user_data);
 
 /**
- * @brief Set the callback function to be called when a stepper event occurs
+ * @brief Callback function for stepper motion control events
+ */
+typedef void (*stepper_motion_event_callback_t)(const struct device *dev, const enum stepper_motion_event event,
+					        void *user_data);
+
+/**
+ * @brief Set the callback function to be called when a stepper hardware event occurs
  *
  * @see stepper_set_event_callback() for details.
  */
 typedef int (*stepper_set_event_callback_t)(const struct device *dev,
 					    stepper_event_callback_t callback, void *user_data);
+
+/**
+ * @brief Set the callback function to be called when a stepper motion event occurs
+ *
+ * @see stepper_motion_set_event_callback() for details.
+ */
+typedef int (*stepper_motion_set_event_callback_t)(const struct device *dev,
+					           stepper_motion_event_callback_t callback, void *user_data);
 
 /**
  * @brief Set the ramp to be used for the stepper
@@ -254,6 +274,7 @@ __subsystem struct stepper_driver_api {
 	stepper_set_reference_position_t set_reference_position;
 	stepper_get_actual_position_t get_actual_position;
 	stepper_set_event_callback_t set_event_callback;
+	stepper_motion_set_event_callback_t motion_set_event_callback;
 	stepper_motion_set_ramp_t motion_set_ramp;
 	stepper_motion_move_by_t motion_move_by;
 	stepper_motion_move_to_t motion_move_to;
@@ -400,10 +421,10 @@ static inline int z_impl_stepper_get_actual_position(const struct device *dev, i
 }
 
 /**
- * @brief Set the callback function to be called when a stepper event occurs
+ * @brief Set the callback function to be called when a stepper hardware event occurs
  *
  * @param dev pointer to the stepper driver instance
- * @param callback Callback function to be called when a stepper event occurs
+ * @param callback Callback function to be called when a stepper hardware event occurs
  * passing NULL will disable the callback
  * @param user_data User data to be passed to the callback function
  *
@@ -423,6 +444,32 @@ static inline int z_impl_stepper_set_event_callback(const struct device *dev,
 		return -ENOSYS;
 	}
 	return api->set_event_callback(dev, callback, user_data);
+}
+
+/**
+ * @brief Set the callback function to be called when a stepper motion event occurs
+ *
+ * @param dev pointer to the stepper driver instance
+ * @param callback Callback function to be called when a stepper motion event occurs
+ * passing NULL will disable the callback
+ * @param user_data User data to be passed to the callback function
+ *
+ * @retval -ENOSYS If not implemented by device driver
+ * @retval 0 Success
+ */
+__syscall int stepper_motion_set_event_callback(const struct device *dev,
+					        stepper_motion_event_callback_t callback, void *user_data);
+
+static inline int z_impl_stepper_motion_set_event_callback(const struct device *dev,
+						           stepper_motion_event_callback_t callback,
+						           void *user_data)
+{
+	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
+
+	if (api->motion_set_event_callback == NULL) {
+		return -ENOSYS;
+	}
+	return api->motion_set_event_callback(dev, callback, user_data);
 }
 
 /**
