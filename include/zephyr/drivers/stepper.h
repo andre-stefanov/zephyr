@@ -599,37 +599,6 @@ static inline int z_impl_stepper_step(const struct device *dev, enum stepper_dir
  * @}
  */
 
-/* Backward compatibility aliases for motion control functions */
-__deprecated static inline int stepper_set_ramp(const struct device *dev, struct stepper_ramp_profile *ramp)
-{
-	return stepper_motion_set_ramp(dev, ramp);
-}
-
-__deprecated static inline int stepper_move_by(const struct device *dev, int32_t micro_steps)
-{
-	return stepper_motion_move_by(dev, micro_steps);
-}
-
-__deprecated static inline int stepper_move_to(const struct device *dev, int32_t micro_steps)
-{
-	return stepper_motion_move_to(dev, micro_steps);
-}
-
-__deprecated static inline int stepper_run(const struct device *dev, enum stepper_direction direction)
-{
-	return stepper_motion_run(dev, direction);
-}
-
-__deprecated static inline int stepper_stop(const struct device *dev)
-{
-	return stepper_motion_stop(dev);
-}
-
-__deprecated static inline int stepper_is_moving(const struct device *dev, bool *is_moving)
-{
-	return stepper_motion_is_moving(dev, is_moving);
-}
-
 #ifdef __cplusplus
 }
 #endif
