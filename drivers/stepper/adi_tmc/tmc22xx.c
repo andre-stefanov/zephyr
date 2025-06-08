@@ -108,6 +108,19 @@ static int tmc22xx_stepper_set_micro_step_res(const struct device *dev,
 	return -ENOTSUP;
 }
 
+static int tmc22xx_stepper_step(const struct device *dev, enum stepper_direction direction)
+{
+	const struct tmc22xx_config *config = dev->config;
+
+	/* Set direction first */
+	step_dir_interface_set_dir(&config->interface_config, direction);
+	
+	/* Perform the step */
+	step_dir_interface_step(&config->interface_config);
+	
+	return 0;
+}
+
 static int tmc22xx_stepper_configure_msx_pins(const struct device *dev)
 {
 	const struct tmc22xx_config *config = dev->config;
@@ -221,6 +234,7 @@ static DEVICE_API(stepper, tmc22xx_stepper_api) = {
 	.set_micro_step_res = tmc22xx_stepper_set_micro_step_res,
 	.get_micro_step_res = tmc22xx_stepper_get_micro_step_res,
 	.set_ramp = stepper_motion_controller_set_ramp,
+	.step = tmc22xx_stepper_step,
 };
 
 #define TMC22XX_STEPPER_DEFINE(inst, msx_table)                                                      \

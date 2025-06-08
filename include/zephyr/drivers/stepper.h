@@ -237,6 +237,13 @@ typedef int (*stepper_stop_t)(const struct device *dev);
 typedef int (*stepper_is_moving_t)(const struct device *dev, bool *is_moving);
 
 /**
+ * @brief Perform a single step in the specified direction
+ *
+ * @see stepper_step() for details.
+ */
+typedef int (*stepper_step_t)(const struct device *dev, enum stepper_direction direction);
+
+/**
  * @brief Stepper Driver API
  */
 __subsystem struct stepper_driver_api {
@@ -253,6 +260,7 @@ __subsystem struct stepper_driver_api {
 	stepper_run_t run;
 	stepper_stop_t stop;
 	stepper_is_moving_t is_moving;
+	stepper_step_t step;
 };
 
 /**
@@ -559,6 +567,32 @@ static inline int z_impl_stepper_is_moving(const struct device *dev, bool *is_mo
 		return -ENOSYS;
 	}
 	return api->is_moving(dev, is_moving);
+}
+
+/**
+ * @brief Perform a single step in the specified direction
+ *
+ * @details This function performs exactly one micro-step in the specified direction.
+ * It provides precise control for applications that need to control each step individually.
+ * The stepper motor must be enabled before calling this function.
+ *
+ * @param dev Pointer to the stepper driver instance
+ * @param direction The direction to step (STEPPER_DIRECTION_POSITIVE or STEPPER_DIRECTION_NEGATIVE)
+ *
+ * @retval -EIO General input / output error
+ * @retval -ENOSYS If not implemented by device driver
+ * @retval 0 Success
+ */
+__syscall int stepper_step(const struct device *dev, enum stepper_direction direction);
+
+static inline int z_impl_stepper_step(const struct device *dev, enum stepper_direction direction)
+{
+	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
+
+	if (api->step == NULL) {
+		return -ENOSYS;
+	}
+	return api->step(dev, direction);
 }
 
 /**
