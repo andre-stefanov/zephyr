@@ -6,6 +6,7 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/stepper.h>
+#include <zephyr/drivers/stepper_motion.h>
 #include <zephyr/input/input.h>
 #include <zephyr/kernel.h>
 
