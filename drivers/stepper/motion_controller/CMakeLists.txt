@@ -5,3 +5,4 @@ add_subdirectory(timing_source)
 add_subdirectory(ramp)
 
 zephyr_library_sources(stepper_motion_controller.c)
+zephyr_library_sources(stepper_motion_controller_wrapper.c)

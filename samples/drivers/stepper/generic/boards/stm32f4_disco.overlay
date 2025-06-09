@@ -2,7 +2,8 @@
 
 / {
 	aliases {
-		stepper = &tmc2209;
+		stepper = &tmc2200_motion_controller;
+		motion-controller = &tmc2200_motion_controller;
 	};
 
 	chosen {
@@ -38,13 +39,18 @@
 
 	tmc2209: adi_tmc2209 {
 		status = "okay";
-		// compatible = "ti,drv84xx";
 		compatible = "adi,tmc2209";
 
-		step-gpios = <&gpioe 3 GPIO_ACTIVE_HIGH>; /* D2 */
-		dir-gpios = <&gpioe 2 GPIO_ACTIVE_HIGH>; /* D3 */
-		en-gpios = <&gpioe 4 GPIO_ACTIVE_LOW>; /* D4 */
+		step-gpios = <&gpioe 3 GPIO_ACTIVE_HIGH>;
+		dir-gpios = <&gpioe 2 GPIO_ACTIVE_HIGH>;
+		en-gpios = <&gpioe 4 GPIO_ACTIVE_LOW>;
 
-		counter = <&counter2>;
+		tmc2200_motion_controller: motion-controller {
+			compatible = "zephyr,stepper-motion-controller";
+			status = "okay";
+
+			counter = <&counter2>;
+		};
 	};
+
 };

@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 Andre Stefanov
+# SPDX-License-Identifier: Apache-2.0
+
+description: Zephyr Stepper Motion Controller
+
+compatible: "zephyr,stepper-motion-controller"
+
+properties:
+  counter:
+    type: phandle
+    required: true
+    description: |
+      Reference to the counter device used for generating
+      step-accurate pulse signals for motion control.
+
+child-binding:
+  description: |
+    Stepper motion controller can be defined as a child node of a stepper device.
+    In this case, the parent stepper device is automatically used as the
+    underlying hardware stepper.
