@@ -4,11 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../motion_controller/stepper_motion_controller.h"
 #include "../interface/stepper_interface_step_dir.h"
 
 #include <zephyr/drivers/gpio.h>
-#include <zephyr/drivers/stepper_motion.h>
+#include <zephyr/drivers/stepper.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(tmc22xx, CONFIG_STEPPER_LOG_LEVEL);
@@ -17,8 +16,6 @@ LOG_MODULE_REGISTER(tmc22xx, CONFIG_STEPPER_LOG_LEVEL);
 #define MSX_PIN_STATE_COUNT 4
 
 struct tmc22xx_config {
-	// Motion controller configuration must be first
-	const struct stepper_motion_controller_config motion_controller_config;
 	// Step/dir interface configuration
 	const struct stepper_interface_step_dir interface_config;
 	// TMC22xx specific config
@@ -28,18 +25,16 @@ struct tmc22xx_config {
 };
 
 struct tmc22xx_data {
-	// Motion controller data must be first
-	struct stepper_motion_controller_data motion_controller_data;
 	// TMC22xx specific data
 	enum stepper_micro_step_resolution resolution;
-	stepper_motion_event_callback_t event_callback;
+	stepper_event_callback_t event_callback;
 	void *event_callback_user_data;
 };
 
 static int tmc22xx_stepper_enable(const struct device *dev)
 {
 	const struct tmc22xx_config *config = dev->config;
-	
+
 	/* Direct GPIO control for enable pin */
 	return gpio_pin_set_dt(&config->en_pin, 1);
 }
@@ -47,13 +42,13 @@ static int tmc22xx_stepper_enable(const struct device *dev)
 static int tmc22xx_stepper_disable(const struct device *dev)
 {
 	const struct tmc22xx_config *config = dev->config;
-	
+
 	/* Direct GPIO control for enable pin */
 	return gpio_pin_set_dt(&config->en_pin, 0);
 }
 
-static int tmc22xx_stepper_motion_set_event_callback(const struct device *dev,
-					      stepper_motion_event_callback_t callback, void *user_data)
+static int tmc22xx_stepper_set_event_callback(const struct device *dev,
+					      stepper_event_callback_t callback, void *user_data)
 {
 	struct tmc22xx_data *data = dev->data;
 
@@ -115,10 +110,10 @@ static int tmc22xx_stepper_step(const struct device *dev, enum stepper_direction
 
 	/* Set direction first */
 	step_dir_interface_set_dir(&config->interface_config, direction);
-	
+
 	/* Perform the step */
 	step_dir_interface_step(&config->interface_config);
-	
+
 	return 0;
 }
 
@@ -181,45 +176,8 @@ static int tmc22xx_stepper_init(const struct device *dev)
 		}
 	}
 
-	ret = stepper_motion_controller_init(dev);
-	if (ret < 0) {
-		LOG_ERR("Failed to init motion controller: %d", ret);
-		return ret;
-	}
-
 	return 0;
 }
-
-// Motion controller callbacks for step/dir interface
-static void tmc22xx_step_callback(const struct device *dev)
-{
-	const struct tmc22xx_config *config = dev->config;
-	/* Use inline version for maximum stepping performance */
-	step_dir_interface_step(&config->interface_config);
-}
-
-static void tmc22xx_set_direction_callback(const struct device *dev,
-					   enum stepper_direction direction)
-{
-	const struct tmc22xx_config *config = dev->config;
-	/* Use inline version for maximum direction setting performance */
-	step_dir_interface_set_dir(&config->interface_config, direction);
-}
-
-static void tmc22xx_event_callback(const struct device *dev, enum stepper_motion_event event)
-{
-	struct tmc22xx_data *data = dev->data;
-
-	if (data->event_callback) {
-		data->event_callback(dev, event, data->event_callback_user_data);
-	}
-}
-
-static const struct stepper_motion_controller_callbacks_api motion_controller_callbacks = {
-	.step = tmc22xx_step_callback,
-	.set_direction = tmc22xx_set_direction_callback,
-	.event = tmc22xx_event_callback,
-};
 
 // Hardware layer API (stepper.h interface)
 static DEVICE_API(stepper, tmc22xx_stepper_api) = {
@@ -228,20 +186,7 @@ static DEVICE_API(stepper, tmc22xx_stepper_api) = {
 	.set_micro_step_res = tmc22xx_stepper_set_micro_step_res,
 	.get_micro_step_res = tmc22xx_stepper_get_micro_step_res,
 	.step = tmc22xx_stepper_step,
-	.set_event_callback = NULL, // Hardware events not implemented for TMC22xx
-};
-
-// Motion control layer API (stepper_motion.h interface)
-static DEVICE_API(stepper_motion, tmc22xx_stepper_motion_api) = {
-	.move_by = stepper_motion_controller_move_by,
-	.is_moving = stepper_motion_controller_is_moving,
-	.set_position = stepper_motion_controller_set_position,
-	.get_position = stepper_motion_controller_get_position,
-	.move_to = stepper_motion_controller_move_to,
-	.run = stepper_motion_controller_run,
-	.stop = stepper_motion_controller_stop,
-	.set_event_callback = tmc22xx_stepper_motion_set_event_callback,
-	.set_ramp = stepper_motion_controller_set_ramp,
+	.set_event_callback = tmc22xx_stepper_set_event_callback,
 };
 
 #define TMC22XX_STEPPER_DEFINE(inst, msx_table)                                                      \
@@ -255,33 +200,25 @@ static DEVICE_API(stepper_motion, tmc22xx_stepper_motion_api) = {
 		ARRAY_SIZE(tmc22xx_stepper_msx_pins_##inst) == MSX_PIN_COUNT,                      \
 		"Two microstep config pins needed");                                               \
 	)) \
-	STEPPER_TIMING_SOURCE_DT_INST_DEFINE(inst)                                                   \
 	static const struct tmc22xx_config tmc22xx_config_##inst = {                                 \
-		.motion_controller_config =                                                          \
-			{                                                                            \
-				.timing_source = STEPPER_TIMING_SOURCE_DT_INST_GET(inst),            \
-				.callbacks = &motion_controller_callbacks,                           \
-			},                                                                           \
 		.interface_config =                                                                  \
 			{                                                                            \
 				.step_pin = GPIO_DT_SPEC_INST_GET(inst, step_gpios),                 \
 				.dir_pin = GPIO_DT_SPEC_INST_GET(inst, dir_gpios),                   \
 				.invert_direction =                                                  \
 					DT_INST_PROP_OR(inst, invert_direction, false),              \
-				.dual_edge_step =                                                    \
-					DT_INST_PROP_OR(inst, dual_edge_step, false),                \
+				.dual_edge_step = DT_INST_PROP_OR(inst, dual_edge_step, false),      \
 			},                                                                           \
-		.en_pin = GPIO_DT_SPEC_INST_GET(inst, en_gpios),                                 \
+		.en_pin = GPIO_DT_SPEC_INST_GET(inst, en_gpios),                                     \
 		.msx_resolutions = msx_table,                                                        \
 		IF_ENABLED(DT_INST_NODE_HAS_PROP(inst, msx_gpios),				   \
 			(.msx_pins = tmc22xx_stepper_msx_pins_##inst)) };     \
 	static struct tmc22xx_data tmc22xx_data_##inst = {                                           \
-		.motion_controller_data = {},                                                        \
 		.resolution = DT_INST_PROP(inst, micro_step_res),                                    \
 	};                                                                                           \
 	DEVICE_DT_INST_DEFINE(inst, tmc22xx_stepper_init, NULL, &tmc22xx_data_##inst,                \
 			      &tmc22xx_config_##inst, POST_KERNEL, CONFIG_STEPPER_INIT_PRIORITY,     \
-			      &tmc22xx_stepper_motion_api);
+			      &tmc22xx_stepper_api);
 
 #define DT_DRV_COMPAT adi_tmc2209
 static enum stepper_micro_step_resolution tmc2209_msx_resolutions[MSX_PIN_STATE_COUNT] = {
