@@ -18,7 +18,6 @@
 #define ZEPHYR_DRIVERS_STEPPER_RAMP_H_
 
 #include <zephyr/drivers/stepper.h>
-#include <zephyr/drivers/stepper_motion.h>
 #include <stdint.h>
 
 struct stepper_ramp_constant_data {

@@ -17,7 +17,6 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/stepper.h>
-#include <zephyr/drivers/stepper_motion.h>
 
 #include "timing_source/stepper_timing_source.h"
 #include "ramp/stepper_ramp.h"

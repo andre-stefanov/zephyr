@@ -7,7 +7,6 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/stepper.h>
-#include <zephyr/drivers/stepper_motion.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(stepper_motion_controller_wrapper, CONFIG_STEPPER_LOG_LEVEL);
