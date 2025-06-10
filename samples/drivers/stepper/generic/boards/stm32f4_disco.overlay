@@ -2,8 +2,8 @@
 
 / {
 	aliases {
-		stepper = &tmc2200_motion_controller;
-		motion-controller = &tmc2200_motion_controller;
+		stepper = &tmc2209_motion_controller;
+		motion-controller = &tmc2209_motion_controller;
 	};
 
 	chosen {
@@ -45,7 +45,7 @@
 		dir-gpios = <&gpioe 2 GPIO_ACTIVE_HIGH>;
 		en-gpios = <&gpioe 4 GPIO_ACTIVE_LOW>;
 
-		tmc2200_motion_controller: motion-controller {
+		tmc2209_motion_controller: motion-controller {
 			compatible = "zephyr,stepper-motion-controller";
 			status = "okay";
 

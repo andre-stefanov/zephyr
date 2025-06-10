@@ -16,24 +16,20 @@ static const struct device *stepper = DEVICE_DT_GET(DT_ALIAS(stepper));
 static int32_t ping_pong_target_position = 1000;
 
 /* Define ramp profiles */
-static const struct stepper_ramp_square_profile ramp_square_params = {
-	.interval_ns = 1000000, /* 1ms interval = 1000 steps/s */
-};
-
 static const struct stepper_ramp_profile ramp_square_profile = {
 	.type = STEPPER_RAMP_TYPE_SQUARE,
-	.square = ramp_square_params,
-};
-
-static const struct stepper_ramp_trapezoidal_profile ramp_trapezoidal_params = {
-	.interval_ns = 1000000, /* Target interval: 1ms = 1000 steps/s */
-	.acceleration_rate = 500,
-	.deceleration_rate = 500,
+	.square = {
+		.interval_ns = 1000000, /* 1ms interval = 1000 steps/s */
+	},
 };
 
 static const struct stepper_ramp_profile ramp_trapezoidal_profile = {
 	.type = STEPPER_RAMP_TYPE_TRAPEZOIDAL,
-	.trapezoidal = ramp_trapezoidal_params,
+	.trapezoidal = {
+		.interval_ns = 1000000, /* Target interval: 1ms = 1000 steps/s */
+		.acceleration_rate = 500,
+		.deceleration_rate = 500,
+	},
 };
 
 static const struct stepper_ramp_profile *current_ramp_profile = &ramp_square_profile;
@@ -69,6 +65,8 @@ static void stepper_callback(const struct device *dev, const enum stepper_motion
 	default:
 		break;
 	}
+
+	k_sem_give(&stepper_generic_sem);
 }
 
 static void button_pressed(struct input_event *event, void *user_data)
