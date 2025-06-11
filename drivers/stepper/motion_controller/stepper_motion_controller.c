@@ -83,8 +83,6 @@ static inline void stepper_motion_controller_set_direction(const struct device *
 							struct stepper_motion_controller_data *data,
 						    const enum stepper_direction direction)
 {
-	config->callbacks->set_direction(dev, direction);
-
 	data->direction = direction;
 	LOG_DBG("Direction set to %d", direction);
 }
@@ -150,7 +148,10 @@ static inline void stepper_motion_controller_handle_next_interval(
 		} else {
 			/* FINAL CASE: All movement completed - notify completion */
 			LOG_DBG("Motion completed");
-			config->callbacks->event(dev, STEPPER_MOTION_EVENT_STEPS_COMPLETED);
+			if (data->event_callback) {
+				data->event_callback(dev, STEPPER_MOTION_EVENT_STEPS_COMPLETED,
+						      data->event_callback_user_data);
+			}
 		}
 	}
 }
@@ -183,8 +184,8 @@ void stepper_motion_controller_handle_timing_signal(const void *user_data)
 	const struct stepper_motion_controller_config *config = get_config(dev);
 	struct stepper_motion_controller_data *data = get_data(dev);
 
-	/* INLINE STEP EXECUTION - avoid function call overhead in critical path */
-	config->callbacks->step(dev);
+	/* Step the underlying hardware stepper with current direction */
+	stepper_step(config->stepper_dev, data->direction);
 
 	/* CRITICAL SECTION: Protect position tracking and timing calculations from race conditions */
 	K_SPINLOCK(&data->lock) {
@@ -209,12 +210,19 @@ int stepper_motion_controller_init(const struct device *dev)
 {
 	const struct stepper_motion_controller_config *config = get_config(dev);
 	struct stepper_motion_controller_data *data = get_data(dev);
+	int ret;
 
-	/* Validate callback structure */
-	if (config->callbacks == NULL || config->callbacks->step == NULL ||
-	    config->callbacks->set_direction == NULL || config->callbacks->event == NULL) {
-		LOG_ERR("Invalid or incomplete callback configuration");
-		return -EINVAL;
+	/* Ensure the underlying stepper device is ready */
+	if (!device_is_ready(config->stepper_dev)) {
+		LOG_ERR("Stepper device %s is not ready", config->stepper_dev->name);
+		return -ENODEV;
+	}
+
+	/* Enable the underlying stepper device */
+	ret = stepper_enable(config->stepper_dev);
+	if (ret < 0) {
+		LOG_ERR("Failed to enable stepper device: %d", ret);
+		return ret;
 	}
 
 	/* Configure timing source callback to our optimized handler */
@@ -225,7 +233,7 @@ int stepper_motion_controller_init(const struct device *dev)
 	stepper_motion_controller_set_direction(dev, config, data, STEPPER_DIRECTION_POSITIVE);
 
 	/* Initialize timing source hardware */
-	const int ret = stepper_timing_source_init(config->timing_source);
+	ret = stepper_timing_source_init(config->timing_source);
 	if (ret < 0) {
 		LOG_ERR("Failed to initialize timing source: %d", ret);
 		return ret;
@@ -363,7 +371,9 @@ int stepper_motion_controller_move_to(const struct device *dev, const int32_t po
 		if (relative_steps == 0) {
 			/* Already at target position */
 			LOG_DBG("Already at target position - signaling completion");
-			config->callbacks->event(dev, STEPPER_MOTION_EVENT_STEPS_COMPLETED);
+			if (data->event_callback) {
+				data->event_callback(dev, STEPPER_MOTION_EVENT_STEPS_COMPLETED, data->event_callback_user_data);
+			}
 			return 0;
 		}
 
@@ -474,3 +484,37 @@ int stepper_motion_controller_run(const struct device *dev, enum stepper_directi
 
 	return 0;
 }
+
+/**
+ * @brief Set event callback for stepper motion events
+ * @param dev The stepper device
+ * @param callback Event callback function
+ * @param user_data User data to pass to callback
+ * @return 0 on success, negative error code on failure
+ */
+int stepper_motion_controller_set_event_callback(const struct device *dev,
+					         stepper_motion_event_callback_t callback,
+					         void *user_data)
+{
+	struct stepper_motion_controller_data *data = get_data(dev);
+
+	K_SPINLOCK(&data->lock) {
+		data->event_callback = callback;
+		data->event_callback_user_data = user_data;
+	}
+
+	return 0;
+}
+
+// Stepper API structure
+const struct stepper_motion_driver_api stepper_motion_controller_api = {
+	.set_position = stepper_motion_controller_set_position,
+	.get_position = stepper_motion_controller_get_position,
+	.set_event_callback = stepper_motion_controller_set_event_callback,
+	.set_ramp = stepper_motion_controller_set_ramp,
+	.move_by = stepper_motion_controller_move_by,
+	.move_to = stepper_motion_controller_move_to,
+	.run = stepper_motion_controller_run,
+	.stop = stepper_motion_controller_stop,
+	.is_moving = stepper_motion_controller_is_moving,
+};

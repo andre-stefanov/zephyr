@@ -21,20 +21,6 @@
 #include "timing_source/stepper_timing_source.h"
 #include "ramp/stepper_ramp.h"
 
-typedef void (*stepper_motion_controller_step_callback_t)(const struct device *);
-
-typedef void (*stepper_motion_controller_set_direction_callback_t)(const struct device *,
-								   enum stepper_direction);
-
-typedef void (*stepper_motion_controller_event_callback_t)(const struct device *,
-							   enum stepper_motion_event);
-
-struct stepper_motion_controller_callbacks_api {
-	stepper_motion_controller_step_callback_t step;
-	stepper_motion_controller_set_direction_callback_t set_direction;
-	stepper_motion_controller_event_callback_t event;
-};
-
 /**
  * @brief Common step direction stepper config.
  *
@@ -42,8 +28,7 @@ struct stepper_motion_controller_callbacks_api {
  */
 struct stepper_motion_controller_config {
 	struct stepper_timing_source *timing_source;
-
-	const struct stepper_motion_controller_callbacks_api *callbacks;
+	const struct device *stepper_dev;
 };
 
 /**
@@ -60,15 +45,19 @@ struct stepper_motion_controller_data {
 	int32_t position;
 
 	struct stepper_ramp ramp;
+	
+	// Motion event callback
+	stepper_motion_event_callback_t event_callback;
+	void *event_callback_user_data;
 };
 
-#define STEPPER_MOTION_CONTROLLER_DT_INST_DEFINE(inst, callbacks_param)                            \
+#define STEPPER_MOTION_CONTROLLER_DT_INST_DEFINE(inst, stepper_dev_param)                           \
 	STEPPER_TIMING_SOURCE_DT_INST_DEFINE(inst)                                                 \
 	static struct stepper_motion_controller_data stepper_motion_controller_data_##inst = {};   \
 	static const struct stepper_motion_controller_config                                       \
 		stepper_motion_controller_cfg_##inst = {                                           \
 			.timing_source = STEPPER_TIMING_SOURCE_DT_INST_GET(inst),                  \
-			.callbacks = callbacks_param,                                              \
+			.stepper_dev = stepper_dev_param,                                          \
 	};
 
 #define STEPPER_MOTION_CONTROLLER_DT_INST_GET_CONFIG(inst) (&stepper_motion_controller_cfg_##inst)
@@ -151,6 +140,36 @@ int stepper_motion_controller_run(const struct device *dev, enum stepper_directi
  */
 int stepper_motion_controller_is_moving(const struct device *dev, bool *is_moving);
 
+/**
+ * @brief Set event callback for stepper motion events.
+ *
+ * @param dev Pointer to the device structure.
+ * @param callback Event callback function.
+ * @param user_data User data to pass to callback.
+ * @return 0 on success, or a negative error code on failure.
+ */
+int stepper_motion_controller_set_event_callback(const struct device *dev,
+					         stepper_motion_event_callback_t callback,
+					         void *user_data);
+
 /** @} */
+
+// Stepper Motion API implementation
+extern const struct stepper_motion_driver_api stepper_motion_controller_api;
+
+#define STEPPER_MOTION_CONTROLLER_DEVICE_DT_INST_DEFINE(inst)                                       \
+	STEPPER_MOTION_CONTROLLER_DT_INST_DEFINE(inst,                                             \
+		COND_CODE_1(DT_INST_NODE_HAS_PROP(inst, stepper),                                  \
+			    (DEVICE_DT_GET(DT_INST_PHANDLE(inst, stepper))),                       \
+			    (DEVICE_DT_GET(DT_INST_PARENT(inst)))))                                \
+	DEVICE_DT_INST_DEFINE(inst, stepper_motion_controller_init, NULL,                           \
+			      STEPPER_MOTION_CONTROLLER_DT_INST_GET_DATA(inst),                    \
+			      STEPPER_MOTION_CONTROLLER_DT_INST_GET_CONFIG(inst),                  \
+			      POST_KERNEL, CONFIG_STEPPER_INIT_PRIORITY,                           \
+			      &stepper_motion_controller_api);
+
+#define DT_DRV_COMPAT zephyr_stepper_motion_controller
+
+DT_INST_FOREACH_STATUS_OKAY(STEPPER_MOTION_CONTROLLER_DEVICE_DT_INST_DEFINE)
 
 #endif /* STEPPER_MOTION_CONTROLLER_H */
