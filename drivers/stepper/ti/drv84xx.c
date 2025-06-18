@@ -478,6 +478,8 @@ static int drv84xx_init(const struct device *dev)
 static DEVICE_API(stepper, drv84xx_stepper_api) = {
 	.enable = drv84xx_enable,
 	.disable = drv84xx_disable,
+	.step = step_dir_stepper_common_step,
+	.set_direction = step_dir_stepper_common_set_direction,
 	.move_by = drv84xx_move_by,
 	.move_to = drv84xx_move_to,
 	.is_moving = step_dir_stepper_common_is_moving,

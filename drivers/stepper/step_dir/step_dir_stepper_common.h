@@ -220,6 +220,22 @@ int step_dir_stepper_common_set_event_callback(const struct device *dev,
 					       stepper_event_callback_t callback, void *user_data);
 
 /**
+ * @brief Step the stepper motor by one step in the current direction.
+ * @param dev Pointer to the device structure.
+ * @return 0 on success, or a negative error code on failure.
+ */
+int step_dir_stepper_common_step(const struct device *dev);
+
+/**
+ * @brief Set the direction of the stepper motor.
+ * @param dev Pointer to the device structure.
+ * @param direction The direction to set.
+ * @return 0 on success, or a negative error code on failure.
+ */
+int step_dir_stepper_common_set_direction(const struct device *dev,
+					  enum stepper_direction direction);
+
+/**
  * @brief Handle a timing signal and update the stepper position.
  * @param dev Pointer to the device structure.
  */

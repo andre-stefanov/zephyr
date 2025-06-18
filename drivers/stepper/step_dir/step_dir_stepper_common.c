@@ -345,3 +345,24 @@ int step_dir_stepper_common_set_event_callback(const struct device *dev,
 	data->event_cb_user_data = user_data;
 	return 0;
 }
+
+int step_dir_stepper_common_step(const struct device *dev)
+{
+	return step_dir_stepper_perform_step(dev);
+}
+
+int step_dir_stepper_common_set_direction(const struct device *dev,
+					  enum stepper_direction direction)
+{
+	struct step_dir_stepper_common_data *data = dev->data;
+	const struct step_dir_stepper_common_config *config = dev->config;
+	int ret = 0;
+
+	K_SPINLOCK(&data->lock) {
+		data->direction = direction;
+		ret = gpio_pin_set_dt(&config->dir_pin, (direction == STEPPER_DIRECTION_POSITIVE)
+								? 1 ^ config->invert_direction
+								: 0 ^ config->invert_direction);
+	}
+	return ret;
+}

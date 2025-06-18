@@ -150,6 +150,8 @@ static int tmc22xx_stepper_init(const struct device *dev)
 static DEVICE_API(stepper, tmc22xx_stepper_api) = {
 	.enable = tmc22xx_stepper_enable,
 	.disable = tmc22xx_stepper_disable,
+	.step = step_dir_stepper_common_step,
+	.set_direction = step_dir_stepper_common_set_direction,
 	.move_by = step_dir_stepper_common_move_by,
 	.is_moving = step_dir_stepper_common_is_moving,
 	.set_reference_position = step_dir_stepper_common_set_reference_position,
