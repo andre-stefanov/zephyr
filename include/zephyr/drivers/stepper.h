@@ -212,11 +212,27 @@ typedef int (*stepper_stop_t)(const struct device *dev);
 typedef int (*stepper_is_moving_t)(const struct device *dev, bool *is_moving);
 
 /**
+ * @brief Step the stepper motor by one step in the current direction.
+ *
+ * @see stepper_step() for details.
+ */
+typedef int (*stepper_step_t)(const struct device *dev);
+
+/**
+ * @brief Set the direction of the stepper motor.
+ *
+ * @see stepper_set_direction() for details.
+ */
+typedef int (*stepper_set_direction_t)(const struct device *dev, enum stepper_direction direction);
+
+/**
  * @brief Stepper Driver API
  */
 __subsystem struct stepper_driver_api {
 	stepper_enable_t enable;
 	stepper_disable_t disable;
+	stepper_step_t step;
+	stepper_set_direction_t set_direction;
 	stepper_set_micro_step_res_t set_micro_step_res;
 	stepper_get_micro_step_res_t get_micro_step_res;
 	stepper_set_reference_position_t set_reference_position;
@@ -538,6 +554,50 @@ static inline int z_impl_stepper_is_moving(const struct device *dev, bool *is_mo
 		return -ENOSYS;
 	}
 	return api->is_moving(dev, is_moving);
+}
+
+/**
+ * @brief Step the stepper motor by one step in the current direction.
+ *
+ * @param dev pointer to the stepper driver instance
+ *
+ * @retval -EIO General input / output error
+ * @retval -ENOSYS If not implemented by device driver
+ * @retval 0 Success
+ */
+__syscall int stepper_step(const struct device *dev);
+
+static inline int z_impl_stepper_step(const struct device *dev)
+{
+	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
+
+	if (api->step == NULL) {
+		return -ENOSYS;
+	}
+	return api->step(dev);
+}
+
+/**
+ * @brief Set the direction of the stepper motor.
+ *
+ * @param dev pointer to the stepper driver instance
+ * @param direction The direction to set
+ *
+ * @retval -EIO General input / output error
+ * @retval -ENOSYS If not implemented by device driver
+ * @retval 0 Success
+ */
+__syscall int stepper_set_direction(const struct device *dev, enum stepper_direction direction);
+
+static inline int z_impl_stepper_set_direction(const struct device *dev,
+					       enum stepper_direction direction)
+{
+	const struct stepper_driver_api *api = (const struct stepper_driver_api *)dev->api;
+
+	if (api->set_direction == NULL) {
+		return -ENOSYS;
+	}
+	return api->set_direction(dev, direction);
 }
 
 /**

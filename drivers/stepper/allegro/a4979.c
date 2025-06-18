@@ -269,6 +269,8 @@ static int a4979_init(const struct device *dev)
 static DEVICE_API(stepper, a4979_stepper_api) = {
 	.enable = a4979_stepper_enable,
 	.disable = a4979_stepper_disable,
+	.step = step_dir_stepper_common_step,
+	.set_direction = step_dir_stepper_common_set_direction,
 	.move_by = a4979_stepper_move_by,
 	.move_to = a4979_move_to,
 	.is_moving = step_dir_stepper_common_is_moving,
