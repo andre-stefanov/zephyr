@@ -120,7 +120,7 @@ static int gpio_step_dir_move_by(const struct device *dev, const int32_t micro_s
 {
 	struct zephyr_gpio_step_dir_controller_data *data = dev->data;
 	const struct zephyr_gpio_step_dir_controller_config *config = dev->config;
-	int ret;
+	int ret = 0;
 
 	if (data->common.microstep_interval_ns == 0) {
 		LOG_ERR("Step interval not set or invalid step interval set");
@@ -182,7 +182,7 @@ static int gpio_step_dir_set_microstep_interval(const struct device *dev,
 int gpio_step_dir_stepper_run(const struct device *dev, const enum stepper_direction direction)
 {
 	struct gpio_stepper_common_data *data = dev->data;
-	int ret;
+	int ret = 0;
 
 	if (data->microstep_interval_ns == 0) {
 		LOG_ERR("Step interval not set or invalid step interval set");
